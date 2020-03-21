@@ -71,6 +71,7 @@ static char *trec_qrels_buf = NULL;
 static TEXT_QRELS_INFO *text_info_pool = NULL;
 static TEXT_QRELS *text_qrels_pool = NULL;
 static REL_INFO *rel_info_pool = NULL;
+static map_t rel_qid_map = NULL;
 
 int
 te_get_qrels (EPI *epi, char *text_qrels_file, ALL_REL_INFO *all_rel_info)
@@ -88,7 +89,8 @@ te_get_qrels (EPI *epi, char *text_qrels_file, ALL_REL_INFO *all_rel_info)
     REL_INFO *rel_info_ptr;
     TEXT_QRELS_INFO *text_info_ptr;
     TEXT_QRELS *text_qrels_ptr;
-    
+    map_t map_ptr;
+
     /* Read entire file into memory */
     if (-1 == (fd = open (text_qrels_file, 0)) ||
         0 >= (size = lseek (fd, 0L, 2)) ||
@@ -147,13 +149,15 @@ te_get_qrels (EPI *epi, char *text_qrels_file, ALL_REL_INFO *all_rel_info)
     /* Allocate space for queries */
     if (NULL == (rel_info_pool = Malloc (num_qid, REL_INFO)) ||
 	NULL == (text_info_pool = Malloc (num_qid, TEXT_QRELS_INFO)) ||
-	NULL == (text_qrels_pool = Malloc (num_lines, TEXT_QRELS)))
+	NULL == (text_qrels_pool = Malloc (num_lines, TEXT_QRELS)) ||
+        NULL == (rel_qid_map = hashmap_new()))
 	return (UNDEF);
 
     rel_info_ptr = rel_info_pool;
     text_info_ptr = text_info_pool;
     text_qrels_ptr = text_qrels_pool;
-    
+    map_ptr = rel_qid_map;
+
     /* Go through lines and store all info */
     current_qid = "";
     for (i = 0; i < num_lines; i++) {
@@ -169,6 +173,7 @@ te_get_qrels (EPI *epi, char *text_qrels_file, ALL_REL_INFO *all_rel_info)
 	    text_info_ptr->text_qrels = text_qrels_ptr;
 	    *rel_info_ptr =
 		(REL_INFO) {current_qid, "qrels", text_info_ptr};
+            hashmap_put(map_ptr, rel_info_ptr->qid, rel_info_ptr);
 	}
 	text_qrels_ptr->docno = lines[i].docno;
 	text_qrels_ptr->rel = atol (lines[i].rel);
@@ -179,6 +184,7 @@ te_get_qrels (EPI *epi, char *text_qrels_file, ALL_REL_INFO *all_rel_info)
 
     all_rel_info->num_q_rels = num_qid;
     all_rel_info->rel_info = rel_info_pool;
+    all_rel_info->map = map_ptr;
 
     Free (lines);
     return (1);
@@ -230,9 +236,13 @@ parse_qrels_line (char **start_ptr, char **qid_ptr,
 }
 
 
-int 
+int
 te_get_qrels_cleanup ()
 {
+    if (rel_qid_map != NULL) {
+      hashmap_free(rel_qid_map);
+      rel_qid_map = NULL;
+    }
     if (trec_qrels_buf != NULL) {
 	Free (trec_qrels_buf);
 	trec_qrels_buf = NULL;
