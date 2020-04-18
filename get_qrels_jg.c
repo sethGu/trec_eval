@@ -101,7 +101,7 @@ te_get_qrels_jg (EPI *epi, char *text_qrels_file, ALL_REL_INFO *all_rel_info)
     /* Read entire file into memory */
     if (-1 == (fd = open (text_qrels_file, 0)) ||
         0 >= (size = lseek (fd, 0L, 2)) ||
-        NULL == (trec_qrels_buf = malloc ((unsigned) size+2)) ||
+        NULL == (trec_qrels_buf = malloc ((size_t) size+2)) ||
         -1 == lseek (fd, 0L, 0) ||
         size != read (fd, trec_qrels_buf, size) ||
 	-1 == close (fd)) {
